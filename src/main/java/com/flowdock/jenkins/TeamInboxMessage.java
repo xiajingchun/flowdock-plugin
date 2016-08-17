@@ -3,14 +3,17 @@ package com.flowdock.jenkins;
 import java.util.List;
 import java.util.ArrayList;
 import java.io.IOException;
+
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.EnvVars;
-import hudson.model.Hudson;
 import hudson.model.Result;
 import hudson.scm.ChangeLogSet;
 import hudson.scm.ChangeLogSet.Entry;
+
 import java.io.UnsupportedEncodingException;
+
+import jenkins.model.JenkinsLocationConfiguration;
 import static org.apache.commons.lang.StringEscapeUtils.escapeHtml;
 
 public class TeamInboxMessage extends FlowdockMessage {
@@ -89,7 +92,13 @@ public class TeamInboxMessage extends FlowdockMessage {
         String buildNo = build.getDisplayName().replaceAll("#", "");
         msg.setSubject(projectName + " build " + buildNo + configuration + " " + buildResult.getHumanResult());
 
-        String rootUrl = Hudson.getInstance().getRootUrl();
+        
+        //Jenkins.getInstance().getRootUrl() always return null, use JenkinsLocationConfiguration instead
+        //String rootUrl = Hudson.getInstance().getRootUrl();
+        
+        JenkinsLocationConfiguration globalConfig = new JenkinsLocationConfiguration();
+        String rootUrl = globalConfig.getUrl();
+        
         String buildLink = (rootUrl == null) ? null : rootUrl + build.getUrl();
         if(buildLink != null) msg.setLink(buildLink);
 

@@ -2,10 +2,11 @@ package com.flowdock.jenkins;
 
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
-import hudson.model.Hudson;
 import hudson.model.Result;
 
 import java.io.UnsupportedEncodingException;
+
+import jenkins.model.JenkinsLocationConfiguration;
 
 public class ChatMessage extends FlowdockMessage {
     protected String externalUserName;
@@ -39,7 +40,12 @@ public class ChatMessage extends FlowdockMessage {
             projectName = build.getProject().getDisplayName();
         }
 
-        String rootUrl = Hudson.getInstance().getRootUrl();
+        //Jenkins.getInstance().getRootUrl() always return null, use JenkinsLocationConfiguration instead
+        //String rootUrl = Hudson.getInstance().getRootUrl();
+        
+        JenkinsLocationConfiguration globalConfig = new JenkinsLocationConfiguration();
+        String rootUrl = globalConfig.getUrl();
+
         String buildLink = (rootUrl == null) ? null : rootUrl + build.getUrl();
         boolean hasLink = buildLink != null;
         String buildNo = build.getDisplayName().replaceAll("#", "");
