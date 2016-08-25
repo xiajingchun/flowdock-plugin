@@ -11,6 +11,11 @@
       <f:entry title="Notification tags" field="notificationTags">
         <f:textbox />
       </f:entry>
+      
+      <f:entry title="Flowdock user mapping" field="userMapping">
+        <f:textbox />
+      </f:entry>
+
 
       <f:validateButton
          title="Test connection with Chat notification" progress="Sending..."

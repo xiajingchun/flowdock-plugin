@@ -3,25 +3,41 @@ package com.flowdock.jenkins;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.Result;
+import hudson.scm.ChangeLogSet.Entry;
 
 import java.io.UnsupportedEncodingException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import jenkins.model.JenkinsLocationConfiguration;
 
 public class ChatMessage extends FlowdockMessage {
     protected String externalUserName;
+    private Set<String> userToNotify;
 
     public ChatMessage() {
         this.externalUserName = "Jenkins";
+        this.userToNotify = new HashSet<String>();
     }
 
     public void setExternalUserName(String externalUserName) {
         this.externalUserName = externalUserName;
     }
+    
+    public void addUserToNotify(String username){
+    	this.userToNotify.add(username);
+    }
 
     public String asPostData() throws UnsupportedEncodingException {
         StringBuilder postData = new StringBuilder();
-        postData.append("content=").append(urlEncode(content));
+        StringBuilder newContent = new StringBuilder(content);
+        if (this.userToNotify.size()>0){
+        	for (String s:this.userToNotify){
+        		newContent.append(" @" + s);
+        	}
+        }
+        postData.append("content=").append(urlEncode(newContent.toString()));
         postData.append("&external_user_name=").append(urlEncode(externalUserName));
         postData.append("&tags=").append(urlEncode(removeWhitespace(tags)));
         return postData.toString();
@@ -74,8 +90,9 @@ public class ChatMessage extends FlowdockMessage {
             content.append("]");
             content.append("(" + buildLink + ")");
         }
-
+        
         msg.setContent(content.toString());
+                
         return msg;
     }
 }

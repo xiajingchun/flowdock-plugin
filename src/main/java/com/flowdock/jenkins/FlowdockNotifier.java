@@ -1,6 +1,7 @@
 package com.flowdock.jenkins;
 
 import com.flowdock.jenkins.exception.FlowdockException;
+
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Launcher;
@@ -8,12 +9,14 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Result;
+import hudson.scm.ChangeLogSet.Entry;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
 import net.sf.json.JSONObject;
+
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -21,6 +24,7 @@ import org.kohsuke.stapler.StaplerRequest;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FlowdockNotifier extends Notifier {
@@ -29,6 +33,8 @@ public class FlowdockNotifier extends Notifier {
     private final String flowToken;
     private final String notificationTags;
     private final boolean chatNotification;
+    private final String userMapping;
+    private final Map<String, String> userMap;
 
     private final Map<BuildResult, Boolean> notifyMap;
     private final boolean notifySuccess;
@@ -40,7 +46,7 @@ public class FlowdockNotifier extends Notifier {
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public FlowdockNotifier(String flowToken, String notificationTags, String chatNotification,
+    public FlowdockNotifier(String flowToken, String notificationTags, String chatNotification, String userMapping, 
         String notifySuccess, String notifyFailure, String notifyFixed, String notifyUnstable,
         String notifyAborted, String notifyNotBuilt) {
         this.flowToken = flowToken;
@@ -62,6 +68,19 @@ public class FlowdockNotifier extends Notifier {
         this.notifyMap.put(BuildResult.UNSTABLE, this.notifyUnstable);
         this.notifyMap.put(BuildResult.ABORTED, this.notifyAborted);
         this.notifyMap.put(BuildResult.NOT_BUILT, this.notifyNotBuilt);
+        
+        // set up user mapping between jenkins (git committer) and flowdock
+        this.userMapping = userMapping;
+    	this.userMap = new HashMap<String, String>();
+        if (null!=userMapping){
+        	String[] maps = userMapping.split(";"); //pairs are separated by ;
+        	for (String s:maps){
+        		String[] pair = s.split(":"); //the format is jenkins_user:flowdock_user
+        		if (null!=pair[0] && null!=pair[1]){
+        			this.userMap.put(pair[0], pair[1]);
+        		}
+        	}
+        }
     }
 
     public String getFlowToken() {
@@ -71,6 +90,11 @@ public class FlowdockNotifier extends Notifier {
     public String getNotificationTags() {
         return notificationTags;
     }
+    
+    public String getUserMapping(){
+    	return userMapping;
+    }
+
 
     public boolean getChatNotification() {
         return chatNotification;
@@ -132,7 +156,18 @@ public class FlowdockNotifier extends Notifier {
             if((build.getResult() != Result.SUCCESS || buildResult == BuildResult.FIXED) && chatNotification) {
                 ChatMessage chatMsg = ChatMessage.fromBuild(build, buildResult, listener);
                 chatMsg.setTags(vars.expand(notificationTags));
-                api.pushChatMessage(chatMsg);
+
+                //add users to notify
+                List<Entry> commits = TeamInboxMessage.parseCommits(build);
+                if (null!=commits){
+                	for (Entry commit:commits){
+                		String flowdock_user = this.userMap.get(commit.getAuthor().getFullName());
+                		if (null!=flowdock_user)
+                			chatMsg.addUserToNotify(flowdock_user);
+                	}
+                }
+                                
+                api.pushChatMessage(chatMsg);                
                 logger.println("Flowdock: Chat notification sent successfully");
             }
         }
@@ -154,7 +189,7 @@ public class FlowdockNotifier extends Notifier {
 
 
     }
-
+    
     @Override
     public DescriptorImpl getDescriptor() {
         return (DescriptorImpl)super.getDescriptor();
